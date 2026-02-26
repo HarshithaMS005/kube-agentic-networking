@@ -69,9 +69,10 @@ type gatewayResources struct {
 	gatewaySynced cache.InformerSynced
 
 	httprouteLister       gatewaylisters.HTTPRouteLister
-	referenceGrantLister gatewaylistersv1beta1.ReferenceGrantLister
-	httprouteSynced      cache.InformerSynced
-	referenceGrantSynced cache.InformerSynced
+	httprouteIndexer      cache.Indexer
+	referenceGrantLister  gatewaylistersv1beta1.ReferenceGrantLister
+	httprouteSynced       cache.InformerSynced
+	referenceGrantSynced  cache.InformerSynced
 }
 
 type agenticNetResources struct {
@@ -133,6 +134,7 @@ func New(
 			gatewayLister:      gatewayInformer.Lister(),
 			gatewaySynced:      gatewayInformer.Informer().HasSynced,
 			httprouteLister:       httprouteInformer.Lister(),
+			httprouteIndexer:      httprouteInformer.Informer().GetIndexer(),
 			referenceGrantLister:  referenceGrantInformer.Lister(),
 			httprouteSynced:       httprouteInformer.Informer().HasSynced,
 			referenceGrantSynced:  referenceGrantInformer.Informer().HasSynced,

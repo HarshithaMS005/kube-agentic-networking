@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
@@ -102,6 +103,15 @@ func main() {
 	sharedGwInformers := gatewayinformers.NewSharedInformerFactory(gatewayClientset, *resyncPeriod)
 	sharedAgenticInformers := agenticinformers.NewSharedInformerFactory(agenticClientset, *resyncPeriod)
 
+	// Index HTTPRoutes by direct Service backendRefs so Service updates only look up relevant routes.
+	httpRouteInformer := sharedGwInformers.Gateway().V1().HTTPRoutes()
+	if err := httpRouteInformer.Informer().AddIndexers(cache.Indexers{
+		controller.ServiceRefIndex: controller.HTTPRouteServiceRefIndexFunc,
+	}); err != nil {
+		klog.ErrorS(err, "Failed to add ServiceRef index to HTTPRoute informer")
+		klog.FlushAndExit(klog.ExitFlushTimeout, 1)
+	}
+
 	c, err := controller.New(
 		ctx,
 		*agenticIdentityTrustDomain,
@@ -114,7 +124,7 @@ func main() {
 		sharedKubeInformers.Core().V1().Secrets(),
 		sharedGwInformers.Gateway().V1().GatewayClasses(),
 		sharedGwInformers.Gateway().V1().Gateways(),
-		sharedGwInformers.Gateway().V1().HTTPRoutes(),
+		httpRouteInformer,
 		sharedGwInformers.Gateway().V1beta1().ReferenceGrants(),
 		sharedAgenticInformers.Agentic().V0alpha0().XBackends(),
 		sharedAgenticInformers.Agentic().V0alpha0().XAccessPolicies())

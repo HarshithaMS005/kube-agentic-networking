@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/kube-agentic-networking/pkg/translator"
 )
 
@@ -85,56 +86,60 @@ func (c *Controller) enqueueGatewaysForService(svc *corev1.Service) {
 	c.enqueueGatewaysForServiceViaXBackends(svc)
 }
 
+// ServiceRefIndex is the name of the HTTPRoute informer index that maps Service refs
+// to HTTPRoutes that reference that Service directly in backendRefs.
+const ServiceRefIndex = "serviceRef"
+
+// HTTPRouteServiceRefIndexFunc is an index func for the HTTPRoute informer. It returns
+// index keys "namespace/name" for each direct (non-XBackend) Service backendRef in the route.
+func HTTPRouteServiceRefIndexFunc(obj interface{}) ([]string, error) {
+	route, ok := obj.(*gatewayv1.HTTPRoute)
+	if !ok {
+		return nil, nil
+	}
+	var keys []string
+	seen := make(map[string]struct{})
+	for _, rule := range route.Spec.Rules {
+		for _, backend := range rule.BackendRefs {
+			if isXBackendRef(backend.BackendRef) {
+				continue
+			}
+			backendNS := route.Namespace
+			if backend.Namespace != nil {
+				backendNS = string(*backend.Namespace)
+			}
+			key := backendNS + "/" + string(backend.Name)
+			if _, ok := seen[key]; !ok {
+				seen[key] = struct{}{}
+				keys = append(keys, key)
+			}
+		}
+	}
+	return keys, nil
+}
+
 // enqueueGatewaysForServiceDirectHTTPRouteRefs enqueues Gateways for HTTPRoutes
-// that reference this Service directly in their backendRefs
+// that reference this Service directly in their backendRefs. Uses the serviceRef index
+// to look up only relevant routes instead of listing all HTTPRoutes.
 func (c *Controller) enqueueGatewaysForServiceDirectHTTPRouteRefs(svc *corev1.Service) {
-	routes, err := c.gateway.httprouteLister.List(labels.Everything())
+	key := svc.Namespace + "/" + svc.Name
+	objs, err := c.gateway.httprouteIndexer.ByIndex(ServiceRefIndex, key)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-
-	for _, route := range routes {
-		matched := false
-
-		for _, rule := range route.Spec.Rules {
-			for _, backend := range rule.BackendRefs {
-				// Skip XBackend refs; see isXBackendRef in backend.go.
-				if isXBackendRef(backend.BackendRef) {
-					continue
-				}
-				backendNS := route.Namespace
-				if backend.Namespace != nil {
-					backendNS = string(*backend.Namespace)
-				}
-
-				if backendNS == svc.Namespace &&
-					string(backend.Name) == svc.Name {
-
-					// Cross-namespace refs require a ReferenceGrant in the backend namespace.
-					// See https://gateway-api.sigs.k8s.io/api-types/referencegrant/
-					if !translator.AllowedByReferenceGrant(route.Namespace, backendNS, c.gateway.referenceGrantLister) {
-						continue
-					}
-					matched = true
-
-					klog.V(4).InfoS(
-						"HTTPRoute references Service directly",
-						"service", klog.KObj(svc),
-						"httproute", klog.KObj(route),
-					)
-					break
-				}
-			}
-
-			if matched {
-				break
-			}
+	for _, obj := range objs {
+		route := obj.(*gatewayv1.HTTPRoute)
+		// Cross-namespace refs require a ReferenceGrant in the backend namespace.
+		if !translator.AllowedByReferenceGrant(route.Namespace, svc.Namespace, c.gateway.referenceGrantLister) {
+			continue
 		}
-
-		if matched {
-			c.enqueueGatewaysForHTTPRoute(route.Spec.ParentRefs, route.Namespace)
-		}
+		klog.V(4).InfoS(
+			"HTTPRoute references Service directly",
+			"service", klog.KObj(svc),
+			"httproute", klog.KObj(route),
+		)
+		c.enqueueGatewaysForHTTPRoute(route.Spec.ParentRefs, route.Namespace)
 	}
 }
 

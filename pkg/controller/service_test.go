@@ -43,6 +43,7 @@ func testControllerForEnqueueGatewaysForService(
 	return &Controller{
 		gateway: gatewayResources{
 			httprouteLister:      gatewaylisters.NewHTTPRouteLister(httpRouteIndexer),
+			httprouteIndexer:     httpRouteIndexer,
 			referenceGrantLister: gatewaylistersv1beta1.NewReferenceGrantLister(referenceGrantIndexer),
 		},
 		agentic: agenticNetResources{
@@ -74,7 +75,10 @@ func TestEnqueueGatewaysForService_DirectHTTPRouteRef(t *testing.T) {
 	svcName := "my-svc"
 	gwName := "my-gateway"
 
-	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		ServiceRefIndex:      HTTPRouteServiceRefIndexFunc,
+	})
 	refGrantIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	backendIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
@@ -121,7 +125,10 @@ func TestEnqueueGatewaysForService_ViaXBackend(t *testing.T) {
 	svcName := "my-svc"
 	gwName := "my-gateway"
 
-	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		ServiceRefIndex:      HTTPRouteServiceRefIndexFunc,
+	})
 	refGrantIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	backendIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
@@ -178,7 +185,10 @@ func TestEnqueueGatewaysForService_ViaXBackend(t *testing.T) {
 
 func TestEnqueueGatewaysForService_NoRefs_EnqueuesNothing(t *testing.T) {
 	ns := "default"
-	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		ServiceRefIndex:      HTTPRouteServiceRefIndexFunc,
+	})
 	refGrantIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	backendIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
@@ -200,7 +210,10 @@ func TestEnqueueGatewaysForService_SkipsXBackendRefInDirectPath(t *testing.T) {
 	svcName := "my-svc"
 	gwName := "my-gateway"
 
-	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		ServiceRefIndex:      HTTPRouteServiceRefIndexFunc,
+	})
 	refGrantIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	backendIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
@@ -251,7 +264,10 @@ func TestEnqueueGatewaysForService_CrossNamespaceRef_RequiresReferenceGrant(t *t
 	svcName := "bar-svc"
 	gwName := "my-gateway"
 
-	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		ServiceRefIndex:      HTTPRouteServiceRefIndexFunc,
+	})
 	refGrantIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	backendIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
@@ -318,7 +334,10 @@ func TestEnqueueGatewaysForService_CrossNamespaceRef_WithoutReferenceGrant_Enque
 	backendNS := "bar"
 	svcName := "bar-svc"
 
-	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	httpRouteIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		ServiceRefIndex:      HTTPRouteServiceRefIndexFunc,
+	})
 	refGrantIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	backendIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
